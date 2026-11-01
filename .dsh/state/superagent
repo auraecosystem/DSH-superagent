@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+node -v; pnpm -v; git --version; tmux -V; python3 --version; gh --version | head -1; dsh --version
+gh api user --jq .login
+command -v lark-cli
+grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.patch.yml 2>/dev/null
