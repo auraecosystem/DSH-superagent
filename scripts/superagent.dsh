@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 node -v; pnpm -v; git --version; tmux -V; python3 --version; gh --version | head -1; dsh --version
 gh api user --jq .login
 command -v lark-cli
