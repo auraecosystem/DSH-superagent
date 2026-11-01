@@ -3,3 +3,64 @@ node -v; pnpm -v; git --version; tmux -V; python3 --version; gh --version | head
 gh api user --jq .login
 command -v lark-cli
 grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.patch.yml 2>/dev/null
+pnpm run build:native-system
+pnpm exec tsx scripts/generate-typert.ts
+tsc -b <tsconfig.host.json references>
+tsdown --env.DSH_BUILD_FACE host
+pnpm --filter @deepseek-ai/dsh-desktop run bundle
+tsc -b <tsconfig.client.json references>
+tsdown --env.DSH_BUILD_FACE client
+pnpm run build:web
+#!/usr/bin/env pwsh
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/gh-agent <<'EOF'
+#!/bin/sh
+GH_CONFIG_DIR="$HOME/.config/gh-agent" exec gh "$@"
+EOF
+chmod +x ~/.local/bin/gh-agent
+gh-agent auth login
+gh-agent api user --jq .login
+LARKSUITE_CLI_CONFIG_DIR="$HOME/.lark-cli-dsh-superagent" lark-cli config init --app-id <cli_…> --app-secret-stdin
+LARKSUITE_CLI_CONFIG_DIR="$HOME/.lark-cli-dsh-superagent" lark-cli config strict-mode bot --global
+cat > ~/.local/bin/lark-bot <<'EOF'
+#!/bin/sh
+export LARKSUITE_CLI_CONFIG_DIR="$HOME/.lark-cli-dsh-superagent"
+exec lark-cli "$@"
+EOF
+chmod +x ~/.local/bin/lark-bot
+npm install -g @deepseek-ai/dsh@0.2.1-rc.3
+git clone <this repository> dsh-superagent && cd dsh-superagent
+pnpm install && pnpm build
+dsh superagent --from-default-profile web --dump-config > /dev/null
+dsh plugin --profile superagent add "link:$PWD"
+scripts/dsh-superagent start
+scripts/dsh-superagent status
+git -C /home/me/src/widgets fetch --no-tags "https://github.com/$DSH_SUPERAGENT_GITHUB_REPOSITORY.git" "${DSH_SUPERAGENT_GITHUB_PR_HEAD:-HEAD}:refs/dsh-superagent/$DSH_SUPERAGENT_TICKET" &&
+git -C /home/me/src/widgets worktree add -b "agent/$DSH_SUPERAGENT_NAME" "$DSH_SUPERAGENT_DIR" "refs/dsh-superagent/$DSH_SUPERAGENT_TICKET"
+api=http://127.0.0.1:3082/orchestrator/api
+rev=$(curl -s -H 'x-orchestrator-request: 1' $api/settings | jq '.sources[] | select(.id == "github") | .revision')
+curl -s -X PUT -H 'x-orchestrator-request: 1' -H 'content-type: application/json' $api/settings/source:github \
+  -d "{\"value\": {\"enabled\": true, \"config\": {\"repository\": \"acme/widgets\", \"cli\": \"$HOME/.local/bin/gh-agent\"}}, \"revision\": $rev}"
+pnpm install            # pnpm workspaces, node >=24.9
+pnpm run clean           # remove build outputs and safe residue from deleted packages
+pnpm run test           # unit tests
+pnpm run test:coverage  # CI coverage gate: per-file 100% on packages/*/*/src
+pnpm run test:e2e       # real-API tests; self-skip without DEEPSEEK_API_KEY
+pnpm run test:expected  # owner-local process expectations
+pnpm run test:snapshot  # keyless recorded-session replay through shipped profiles; filter: -t <name>
+pnpm run test:snapshot:record  # re-record expected outputs (needs key)
+pnpm run typecheck
+pnpm run lint
+pnpm run duplication    # cross-file TypeScript clone detection
+pnpm run build          # build:artifacts + build:check, concurrently
+pnpm run build:artifacts # artifacts: tsc emits lib/types, tsdown bundles runtime, Web
+pnpm run build:check    # typecheck aggregate tests/scripts against current build:artifacts output
+pnpm run hygiene        # publint + workspace/package/dependency checks + NodeNext consumer check
+pnpm run check:windows-wine  # ONLY when diagnosing a known Windows failure (needs wine); CI owns this signal
+pnpm run doc-sync       # documentation gates (scripts/run-gates.ts)
+pnpm run test:docs      # quick documentation checks (no build; doc-quick aggregate)
+pnpm run website:build  # VitePress build (doubles as dead-link check)
+pnpm dsh --profile headless "task"  # run one task from source (needs DEEPSEEK_API_KEY)
+pnpm run demo:ptc -- "task"  # headless PTC mode run (needs key)
+pnpm run dev:web | dev:desktop  # build:artifacts, then launch; Web also rebuilds client bundles on edits. start:web | start:desktop skip the build
+make web|dev-web|desktop|dev-desktop|build  # the same commands; ARGS='--no-open' forwards options
